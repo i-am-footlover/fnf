@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 
@@ -20,28 +19,25 @@ fn display_host(host: &str) -> String {
 
 type FileMap = HashMap<PathBuf, String>;
 
-fn hash_file(path: &Path) -> std::io::Result<String> {
-    use sha2::{Digest, Sha256};
+// TODO:
+fn hash_file(_path: &Path) -> std::io::Result<String> {
+    // use std::io::Read;
+    // use sha2::{Digest, Sha256};
+    // let mut file = std::fs::File::open(path)?;
+    // let mut hasher = Sha256::new();
+    // let mut buf = [0u8; 8192];
+    // loop {
+    //     let n = file.read(&mut buf)?;
 
-    let mut file = std::fs::File::open(path)?;
+    //     if n == 0 {
+    //         break;
+    //     }
 
-    let mut hasher = Sha256::new();
-
-    let mut buf = [0u8; 8192];
-
-    loop {
-        let n = file.read(&mut buf)?;
-
-        if n == 0 {
-            break;
-        }
-
-        hasher.update(&buf[..n]);
-    }
-
-    let hash = hasher.finalize();
-
-    Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
+    //     hasher.update(&buf[..n]);
+    // }
+    // let hash = hasher.finalize();
+    // Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
+    Ok("".to_string())
 }
 
 fn parse_dir(s: &str) -> Result<(String, PathBuf, FileMap), String> {
