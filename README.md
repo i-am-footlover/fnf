@@ -34,13 +34,13 @@ Run `fnf.js` in Scriptable.
 
 The script will prompt for:
 
+* Destination folder
 * Server host
 * Server port
-* Share name
-* Destination folder
+* Share name (Name of folders exposed through server)
 
 Files are synced into:
 
-```txt
-<selected-folder>/<share-name>/
+```txt id="a3rnup"
+<destination-folder>/<share-name>/
 ```
