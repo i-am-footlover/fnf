@@ -45,6 +45,10 @@ async function main() {
   console.log(`Sync root: ${syncRoot}`);
   console.log("");
 
+  const progress = new ProgressBar(`Syncing "${name}"`, `${host}:${port}`);
+  await progress.present();
+  await progress.update(0, "Fetching file list…");
+
   // =========================
   // FETCH MANIFEST
   // =========================
@@ -56,6 +60,10 @@ async function main() {
   } catch (e) {
     console.error("Manifest fetch failed");
     console.error(String(e));
+
+    await progress.fail("Could not fetch the file list");
+    await progress.waitForDismiss();
+
     return;
   }
 
@@ -70,16 +78,26 @@ async function main() {
   let skipped = 0;
   let failed = 0;
 
-  for (const rel of remote) {
+  const total = remote.length;
+
+  if (total === 0) {
+    await progress.update(100, "Nothing to sync");
+  }
+
+  for (let i = 0; i < remote.length; i++) {
+    const rel = remote[i];
+    const pct = Math.round(((i + 1) / total) * 100);
     const localPath = syncRoot + "/" + rel;
 
     // Skip existing files
     if (fm.fileExists(localPath)) {
       skipped++;
+      await progress.update(pct, `Skipped ${i + 1}/${total}: ${rel}`);
       continue;
     }
 
     console.log(`NEW: ${rel}`);
+    await progress.update(pct, `Downloading ${i + 1}/${total}: ${rel}`);
 
     try {
       await downloadFile(BASE, syncRoot, rel);
@@ -105,6 +123,151 @@ async function main() {
   console.log(`Downloaded: ${downloaded}`);
   console.log(`Skipped: ${skipped}`);
   console.log(`Failed: ${failed}`);
+
+  await progress.complete(downloaded, skipped, failed);
+  await progress.waitForDismiss();
+}
+
+// =========================
+// PROGRESS UI (WebView bar)
+// =========================
+//
+// Presents a small HTML page with a progress bar inside a WebView.
+// `present()` is intentionally NOT awaited internally - that lets the
+// sync loop keep running while the bar is on screen. We store the
+// promise and await it later (waitForDismiss) so the script doesn't
+// exit until the user has actually seen and dismissed the result.
+
+class ProgressBar {
+  constructor(title, subtitle) {
+    this.title = title;
+    this.subtitle = subtitle || "";
+    this.webView = new WebView();
+    this.dismissPromise = null;
+    this.closed = false;
+  }
+
+  async present() {
+    await this.webView.loadHTML(this._html());
+
+    this.dismissPromise = this.webView.present(false).then(() => {
+      this.closed = true;
+    });
+  }
+
+  async update(percent, status) {
+    await this._eval(`setProgress(${percent}, ${JSON.stringify(status)})`);
+  }
+
+  async complete(downloaded, skipped, failed) {
+    const summary = `Downloaded ${downloaded} · Skipped ${skipped} · Failed ${failed}`;
+    const hadFailures = failed > 0;
+
+    await this._eval(`setDone(${JSON.stringify(summary)}, ${hadFailures})`);
+  }
+
+  async fail(message) {
+    await this._eval(`setError(${JSON.stringify(message)})`);
+  }
+
+  async waitForDismiss() {
+    if (this.dismissPromise) {
+      await this.dismissPromise;
+    }
+  }
+
+  async _eval(js) {
+    if (this.closed) return;
+
+    try {
+      await this.webView.evaluateJavaScript(js, false);
+    } catch (e) {
+      // User likely closed the bar early - ignore.
+    }
+  }
+
+  _html() {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, sans-serif;
+    background: #1c1c1e;
+    color: #fff;
+    margin: 0;
+    padding: 28px 24px;
+  }
+  h2 {
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+  }
+  .subtitle {
+    font-size: 12px;
+    color: #8e8e93;
+    margin: 0 0 18px 0;
+  }
+  .track {
+    background: #3a3a3c;
+    border-radius: 10px;
+    height: 18px;
+    overflow: hidden;
+  }
+  #bar {
+    background: #0a84ff;
+    height: 100%;
+    width: 0%;
+    transition: width 0.25s ease, background-color 0.25s ease;
+  }
+  #pct {
+    margin-top: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+  }
+  #status {
+    margin-top: 14px;
+    font-size: 13px;
+    color: #9b9b9d;
+    word-break: break-all;
+    min-height: 16px;
+  }
+</style>
+</head>
+<body>
+  <h2>${this.title}</h2>
+  <div class="subtitle">${this.subtitle}</div>
+  <div class="track"><div id="bar"></div></div>
+  <div id="pct">0%</div>
+  <div id="status">Starting…</div>
+
+  <script>
+    function setProgress(pct, status) {
+      document.getElementById('bar').style.width = pct + '%';
+      document.getElementById('pct').textContent = pct + '%';
+      document.getElementById('status').textContent = status;
+    }
+    function setDone(summary, hadFailures) {
+      const bar = document.getElementById('bar');
+      bar.style.width = '100%';
+      bar.style.background = hadFailures ? '#ff9f0a' : '#34c759';
+      document.getElementById('pct').textContent = 'Done';
+      document.getElementById('status').textContent = summary;
+    }
+    function setError(message) {
+      const bar = document.getElementById('bar');
+      bar.style.background = '#ff453a';
+      document.getElementById('pct').textContent = 'Error';
+      document.getElementById('status').textContent = message;
+    }
+  </script>
+</body>
+</html>`;
+  }
 }
 
 // =========================
