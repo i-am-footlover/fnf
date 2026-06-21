@@ -1,29 +1,36 @@
+// =========================
+// SCRIPTABLE FOLDER SYNC
+// =========================
+
 const fm = FileManager.local();
 
-async function main() {
-  const root = await DocumentPicker.openFolder();
+// Config file
+// Stores:
+// - root folder
+// - host
+// - port
+// - share
 
-  if (!root) {
-    console.log("No folder selected");
+const CONFIG_PATH = fm.documentsDirectory() + "/fnf-sync-config.json";
+
+// =========================
+// MAIN
+// =========================
+
+async function main() {
+  const config = await getConfig();
+
+  if (!config) {
+    console.log("Setup cancelled");
     return;
   }
 
-  const host = await prompt("Server Host", "192.168.1.1");
-
-  if (!host) return;
-
-  const port = await prompt("Server Port", "8698");
-
-  if (!port) return;
-
-  const share = await prompt("Share Name", "");
-
-  if (!share) return;
+  const { root, host, port, share } = config;
 
   const BASE = `http://${host}:${port}`;
 
   // Final sync directory:
-  // <picked-folder>/<share>/
+  // <destination-folder>/<share>/
 
   const syncRoot = root + "/" + share;
 
@@ -51,7 +58,6 @@ async function main() {
   }
 
   console.log(`Remote files: ${Object.keys(remote).length}`);
-
   console.log("");
 
   // =========================
@@ -63,6 +69,8 @@ async function main() {
   let failed = 0;
 
   for (const [rel] of Object.entries(remote)) {
+    // Ignore backups
+
     if (rel.startsWith(".backup/")) {
       continue;
     }
@@ -105,6 +113,84 @@ async function main() {
 }
 
 // =========================
+// CONFIG
+// =========================
+
+async function getConfig() {
+  // Existing config
+
+  if (fm.fileExists(CONFIG_PATH)) {
+    try {
+      const raw = fm.readString(CONFIG_PATH);
+
+      const config = JSON.parse(raw);
+
+      if (config.root && config.host && config.port && config.share) {
+        return config;
+      }
+    } catch (e) {
+      console.error("Invalid config file");
+    }
+  }
+
+  // First run setup
+
+  return await configure();
+}
+
+async function configure() {
+  // Pick destination folder
+
+  const root = await DocumentPicker.openFolder();
+
+  if (!root) {
+    return null;
+  }
+
+  // Server host
+
+  const host = await prompt("Server Host", "192.168.1.");
+
+  if (!host) {
+    return null;
+  }
+
+  // Server port
+
+  const port = await prompt("Server Port", "8698");
+
+  if (!port) {
+    return null;
+  }
+
+  // Share name
+
+  const share = await prompt("Share Name", "");
+
+  if (!share) {
+    return null;
+  }
+
+  const config = {
+    root,
+    host,
+    port,
+    share,
+  };
+
+  saveConfig(config);
+
+  console.log("Config saved");
+  console.log("");
+
+  return config;
+}
+
+function saveConfig(config) {
+  fm.writeString(CONFIG_PATH, JSON.stringify(config, null, 2));
+}
+
+// =========================
 // PROMPT
 // =========================
 
@@ -137,7 +223,7 @@ async function prompt(title, value = "") {
 // =========================
 
 async function fetchRemoteManifest(BASE, SHARE) {
-  const url = `${BASE}/list/${encodeURIComponent(SHARE)}`;
+  const url = `${BASE}/list/` + `${encodeURIComponent(SHARE)}`;
 
   console.log(`GET ${url}`);
 
@@ -151,7 +237,7 @@ async function fetchRemoteManifest(BASE, SHARE) {
     throw new Error(`Network error\n${e}`);
   }
 
-  // HTTP errors
+  // HTTP status errors
 
   if (req.response && req.response.statusCode >= 400) {
     throw new Error(`HTTP ${req.response.statusCode}`);
@@ -178,7 +264,7 @@ async function downloadFile(BASE, SHARE, root, rel) {
     throw new Error(`Network error\n${e}`);
   }
 
-  // HTTP errors
+  // HTTP status errors
 
   if (req.response && req.response.statusCode >= 400) {
     throw new Error(`HTTP ${req.response.statusCode}`);
@@ -217,4 +303,35 @@ function ensureParentDir(path) {
   }
 }
 
-await main();
+// =========================
+// SHORTCUT PARAMS
+// =========================
+
+// script
+// -> normal sync
+//
+// script?reset=1
+// -> clear saved config
+//
+// script?config=1
+// -> force reconfigure
+
+if (args.queryParameters.reset === "1") {
+  if (fm.fileExists(CONFIG_PATH)) {
+    fm.remove(CONFIG_PATH);
+
+    console.log("Saved config cleared");
+  } else {
+    console.log("No saved config");
+  }
+} else if (args.queryParameters.config === "1") {
+  const config = await configure();
+
+  if (config) {
+    console.log("Reconfiguration complete");
+  } else {
+    console.log("Reconfiguration cancelled");
+  }
+} else {
+  await main();
+}
