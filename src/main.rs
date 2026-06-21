@@ -8,6 +8,16 @@ use salvo::fs::NamedFile;
 use salvo::prelude::*;
 use walkdir::WalkDir;
 
+fn display_host(host: &str) -> String {
+    if host == "0.0.0.0" {
+        local_ip_address::local_ip()
+            .map(|ip| ip.to_string())
+            .unwrap_or_else(|_| "127.0.0.1".into())
+    } else {
+        host.to_string()
+    }
+}
+
 type FileMap = HashMap<PathBuf, String>;
 
 fn hash_file(path: &Path) -> std::io::Result<String> {
@@ -148,7 +158,9 @@ async fn main() {
 
     let router = Router::new().push(list_router).push(download_router);
 
-    println!("Server running! Listening on https://{host}:{port}");
+    let display_host = display_host(&host);
+    println!("Server running! Listening on http://{display_host}:{port}");
+
     Server::new(TcpListener::new((host, port)).bind().await)
         .serve(router)
         .await;
