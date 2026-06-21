@@ -247,7 +247,7 @@ async function fetchRemoteManifest(BASE, SHARE) {
 }
 
 async function downloadFile(BASE, SHARE, root, rel) {
-  const encodedRel = encodePathSegments(rel);
+  const encodedRel = encodeURIComponent(rel);
 
   const url =
     `${BASE}/download/` + `${encodeURIComponent(SHARE)}/` + `${encodedRel}`;
@@ -280,10 +280,6 @@ async function downloadFile(BASE, SHARE, root, rel) {
 // =========================
 // HELPERS
 // =========================
-
-function encodePathSegments(rel) {
-  return rel.split("/").map(encodeURIComponent).join("/");
-}
 
 function ensureParentDir(path) {
   const parts = path.split("/");
