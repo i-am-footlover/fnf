@@ -142,7 +142,6 @@ async fn main() {
 
     for (name, path, file_map) in dirs {
         if dir_map.insert(name.clone(), (path, file_map)).is_some() {
-            // This leverages clap's native formatting to print a clean error and exit
             eprintln!("Duplicate directory base name detected: '{}'", name);
             exit(1);
         }
