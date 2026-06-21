@@ -38,7 +38,7 @@ Install Scriptable from the App Store.
 
 Copy the contents of:
 
-[fnf](./fnf.js)
+`fnf.js`
 
 ---
 
@@ -48,7 +48,7 @@ Open:
 
 `scriptable:///add`
 
-This opens the “New Script” screen in Scriptable.
+This opens the New Script screen in Scriptable.
 
 ---
 
@@ -62,11 +62,21 @@ Save the script as:
 
 ---
 
-### 4. Run the Script
+### 4. Create a Folder Bookmark
+
+In Scriptable, open:
+
+**Settings → File Bookmarks**
+
+Tap **Add Bookmark** and select the folder where synced files should be stored.
+
+---
+
+### 5. Run the Script
 
 Run:
 
-* Click on the script inside Scriptable
+- Tap the script inside Scriptable
 
 Or open:
 
@@ -74,18 +84,40 @@ Or open:
 
 ---
 
-### 5. First Run Setup
+### 6. First Run Setup
 
 The script will prompt for:
 
-* Destination folder
-* Server host
-* Server port
-* Share name (shared folder name)
+- Sync folder
+- Server host
+- Server port
+- Folder name
+
+For **Sync folder**, select one of your Scriptable folder bookmarks.
+
+**Folder name** is the folder shared by the server, for example:
+
+```text
+Documents
+Downloads
+```
 
 Files are synced into:
 
-`<destination-folder>/<share-name>/`
+```text
+<sync-folder>/<folder-name>/
+```
+
+Example:
+
+```text
+FNF Sync/
+└── Documents/
+    ├── notes.txt
+    └── image.png
+```
+
+The configuration is saved and reused for future syncs.
 
 ---
 
@@ -93,31 +125,14 @@ Files are synced into:
 
 To change:
 
-* destination folder
-* host
-* port
-* share
+- sync folder
+- host
+- port
+- folder name
 
 Open:
 
 `scriptable:///run/fnf?config=1`
-
----
-
-## Reset Saved Config
-
-To remove the saved configuration:
-
-`scriptable:///run/fnf?reset=1`
-
-This clears:
-
-* saved destination folder
-* host
-* port
-* share
-
-The next run will prompt setup again.
 
 ---
 

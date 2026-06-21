@@ -303,24 +303,7 @@ function ensureParentDir(path) {
 // SHORTCUT PARAMS
 // =========================
 
-// script
-// -> normal sync
-//
-// script?reset=1
-// -> clear saved config
-//
-// script?config=1
-// -> force reconfigure
-
-if (args.queryParameters.reset === "1") {
-  if (fm.fileExists(CONFIG_PATH)) {
-    fm.remove(CONFIG_PATH);
-
-    console.log("Saved config cleared");
-  } else {
-    console.log("No saved config");
-  }
-} else if (args.queryParameters.config === "1") {
+if (args.queryParameters.config === "1") {
   const config = await configure();
 
   if (config) {
