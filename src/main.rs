@@ -112,7 +112,7 @@ async fn main() {
     let host = to_local_ip(&host);
     println!("Server running! Listening on http://{host}:{port}\n");
 
-    let url = format!("scriptable:///run/fnf?host={host}&port={port}&name={name}");
+    let url = format!("scriptable:///run/fnf?host={host}&port={port}&name={name}&openEditor=true");
     println!("Scan the QR code below to sync with Scriptable.");
     let code = QrCode::new(&url).unwrap();
     let string = code.render::<unicode::Dense1x2>().build();

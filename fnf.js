@@ -3,7 +3,7 @@
 // =========================
 //
 // Invocation (from the QR code / shortcut link the server prints):
-//   scriptable:///run/fnf?host=...&port=...&name=...
+//   scriptable:///run/fnf?host=...&port=...&name=...&openEditor=true
 
 const fm = FileManager.local();
 
