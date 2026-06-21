@@ -141,11 +141,3 @@ Save the script as:
 `fnf-config`
 
 Then just tap the `fnf-config` script inside Scriptable to reconfigure.
-
----
-
-## Normal Usage
-
-After setup, future syncs can be started with:
-
-`scriptable:///run/fnf`
