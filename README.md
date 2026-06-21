@@ -121,7 +121,7 @@ The configuration is saved and reused for future syncs.
 
 ---
 
-## Reconfigure
+### Reconfigure
 
 To change:
 
