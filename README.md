@@ -1,6 +1,6 @@
 # fnf
 
-Simple local file sync for Scriptable.
+Simple local files and folders sync.
 
 ## Server
 
