@@ -30,17 +30,17 @@ fnf --dirs ~/Documents --host 0.0.0.0 --port 8698
 
 ## Scriptable
 
-Use `fnf.js` inside Scriptable to sync files.
+Run `fnf.js` in Scriptable.
 
-Edit these values:
+The script will prompt for:
 
-```js
-const BASE = "http://<HOST>:<PORT>";
-const SHARE = "FOLDER_TO_SYNC";
+* Server host
+* Server port
+* Share name
+* Destination folder
+
+Files are synced into:
+
+```txt
+<selected-folder>/<share-name>/
 ```
-
-Replace:
-
-* `<HOST>` with your server IP
-* `<PORT>` with the port used by `fnf`
-* `FOLDER_TO_SYNC` with one of the directories passed to `--dirs`
