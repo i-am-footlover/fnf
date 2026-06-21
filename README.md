@@ -44,7 +44,7 @@ Copy the contents of:
 
 Open:
 
-<a href="scriptable:///add">scriptable:///add</a>
+[scriptable:///add](scriptable:///add)
 
 This opens the “New Script” screen in Scriptable.
 
@@ -68,7 +68,7 @@ Click on the script to run it
 
 Or 
 
-<a href="scriptable:///run/fnf">scriptable:///run/fnf</a>
+[scriptable:///run/fnf](scriptable:///run/fnf)
 
 ---
 
@@ -98,7 +98,7 @@ To change:
 
 Run:
 
-<a href="scriptable:///run/fnf?config=1">scriptable:///run/fnf?config=1</a>
+[scriptable:///run/fnf?config=1](scriptable:///run/fnf?config=1)
 
 ---
 
@@ -106,7 +106,7 @@ Run:
 
 To remove the saved configuration:
 
-<a href="scriptable:///run/fnf?reset=1">scriptable:///run/fnf?reset=1</a>
+[scriptable:///run/fnf?reset=1](scriptable:///run/fnf?reset=1)
 
 This clears:
 
@@ -123,4 +123,4 @@ The next run will prompt setup again.
 
 After setup, future syncs can be started with:
 
-<a href="scriptable:///run/fnf">scriptable:///run/fnf</a>
+[scriptable:///run/fnf](scriptable:///run/fnf)
