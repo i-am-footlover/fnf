@@ -30,7 +30,7 @@ Example with host and port:
 fnf ~/Documents --host 0.0.0.0 --port 8698
 ```
 
-When the server starts, it prints a QR code (and a scriptable:// link). Scan it from your iOS device to run the sync.
+When the server starts, it prints a QR code that launch Scriptable (with a scriptable:// link). Scan it from your iOS device to launch Scriptable and run sync.
 
 ## Scriptable
 
@@ -78,7 +78,7 @@ Tap **Add Bookmark**, select the folder where synced files should be stored, and
 
 Scan the QR code printed by the server (or open the link it prints). This launches:
 
-`scriptable:///run/fnf?host=...&port=...&name=...`
+`scriptable:///run/fnf?host=...&port=...&name=...&openEditor=true`
 
 `host`, `port`, and `name` (the shared directory's name).
 
