@@ -130,9 +130,17 @@ To change:
 - port
 - folder name
 
-Open:
+Either open:
 
 `scriptable:///run/fnf?config=1`
+
+Or install [`fnf-config.js`](./fnf-config.js) using the same process as [`fnf.js`](./fnf.js) in [Steps 1–3](#1-copy-the-script).
+
+Save the script as:
+
+`fnf-config`
+
+Then tap the `fnf-config` script inside Scriptable to reconfigure settings.
 
 ---
 
