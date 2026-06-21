@@ -21,13 +21,13 @@ fnf --help
 Serve a directory:
 
 ```bash
-fnf --dir ~/Documents
+fnf ~/Documents
 ```
 
 Example with host and port:
 
 ```bash
-fnf --dir ~/Documents --host 0.0.0.0 --port 8698
+fnf ~/Documents --host 0.0.0.0 --port 8698
 ```
 
 When the server starts, it prints a QR code (and a scriptable:// link). Scan it from your iOS device to run the sync.

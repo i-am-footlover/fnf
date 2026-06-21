@@ -55,7 +55,7 @@ fn parse_dir(s: &str) -> Result<(String, PathBuf, HashSet<PathBuf>), String> {
 #[derive(Parser, Debug)]
 #[command(author, version, about, arg_required_else_help = true)]
 struct Opts {
-    #[arg(long, required = true, num_args = 1.., value_parser = parse_dir)]
+    #[arg(required = true, value_parser = parse_dir)]
     dir: (String, PathBuf, HashSet<PathBuf>),
     #[arg(long, default_value = "0.0.0.0")]
     host: String,
