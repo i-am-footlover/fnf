@@ -18,17 +18,19 @@ Show help:
 fnf --help
 ```
 
-Serve directories:
+Serve a directory:
 
 ```bash
-fnf --dirs ~/Documents ~/Downloads
+fnf --dir ~/Documents
 ```
 
 Example with host and port:
 
 ```bash
-fnf --dirs ~/Documents --host 0.0.0.0 --port 8698
+fnf --dir ~/Documents --host 0.0.0.0 --port 8698
 ```
+
+When the server starts, it prints a QR code (and a scriptable:// link). Scan it from your iOS device to run the sync.
 
 ## Scriptable
 
@@ -68,19 +70,17 @@ In Scriptable, open:
 
 **Settings → File Bookmarks**
 
-Tap **Add Bookmark** and select the folder where synced files should be stored.
+Tap **Add Bookmark**, select the folder where synced files should be stored, and give it a name. You'll type this name into the script in Step 6.
 
 ---
 
 ### 5. Run the Script
 
-Run:
+Scan the QR code printed by the server (or open the link it prints). This launches:
 
-- Tap the script inside Scriptable
+`scriptable:///run/fnf?host=...&port=...&name=...`
 
-Or open:
-
-`scriptable:///run/fnf`
+`host`, `port`, and `name` (the shared directory's name).
 
 ---
 
@@ -88,24 +88,14 @@ Or open:
 
 The script will prompt for:
 
-- Sync folder
-- Server host
-- Server port
-- Folder name
+- Root folder bookmark name
 
-For **Sync folder**, select one of your Scriptable folder bookmarks.
-
-**Folder name** is the folder shared by the server, for example:
-
-```text
-Documents
-Downloads
-```
+Enter the exact name you gave the bookmark in Step 4.
 
 Files are synced into:
 
 ```text
-<sync-folder>/<folder-name>/
+<bookmarked-root>/<name>/
 ```
 
 Example:
@@ -117,27 +107,20 @@ FNF Sync/
     └── image.png
 ```
 
-The configuration is saved and reused for future syncs.
+The bookmark name is saved and reused for future syncs.
 
 ---
 
-### Reconfigure
+### Reconfigure Root
 
-To change:
+To change the root folder bookmark, open:
 
-- sync folder
-- host
-- port
-- folder name
+`scriptable:///run/fnf?resetRoot=1`
 
-Either open:
-
-`scriptable:///run/fnf?config=1`
-
-Or install [`fnf-config.js`](./fnf-config.js) using the same process as [`fnf.js`](./fnf.js) in [Steps 1–3](#1-copy-the-script).
+Or install [`fnf-reset-root.js`](./fnf-reset-root.js) using the same process as [`fnf.js`](./fnf.js) in [Steps 1–3](#1-copy-the-script).
 
 Save the script as:
 
-`fnf-config`
+`fnf-reset-root`
 
-Then just tap the `fnf-config` script inside Scriptable to reconfigure.
+Then just tap the `fnf-reset-root` script inside Scriptable to reconfigure.

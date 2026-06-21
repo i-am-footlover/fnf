@@ -1,16 +1,13 @@
 // =========================
 // SCRIPTABLE FOLDER SYNC
 // =========================
+//
+// Invocation (from the QR code / shortcut link the server prints):
+//   scriptable:///run/fnf?host=...&port=...&name=...
 
 const fm = FileManager.local();
 
 // Config file
-// Stores:
-// - root folder
-// - host
-// - port
-// - folder name
-
 const CONFIG_PATH = fm.documentsDirectory() + "/fnf-sync-config.json";
 
 // =========================
@@ -18,28 +15,33 @@ const CONFIG_PATH = fm.documentsDirectory() + "/fnf-sync-config.json";
 // =========================
 
 async function main() {
-  const config = await getConfig();
+  const { host, port, name } = args.queryParameters;
 
-  if (!config) {
-    console.log("Setup cancelled");
+  if (!host || !port || !name) {
+    console.error("Missing host, port or name query parameter");
     return;
   }
 
-  const { root, host, port, share } = config;
+  const root = await getRoot();
+
+  if (!root) {
+    console.log("No root folder configured, aborting");
+    return;
+  }
 
   const BASE = `http://${host}:${port}`;
 
   // Final sync directory:
-  // <sync-folder>/<folder-name>/
+  // <bookmarked-root>/<folder-name>/
 
-  const syncRoot = root + "/" + share;
+  const syncRoot = root + "/" + name;
 
   if (!fm.fileExists(syncRoot)) {
     fm.createDirectory(syncRoot, true);
   }
 
   console.log(`Host: ${host}:${port}`);
-  console.log(`Folder: ${share}`);
+  console.log(`Folder: ${name}`);
   console.log(`Sync root: ${syncRoot}`);
   console.log("");
 
@@ -50,14 +52,14 @@ async function main() {
   let remote;
 
   try {
-    remote = await fetchRemoteManifest(BASE, share);
+    remote = await fetchRemoteManifest(BASE);
   } catch (e) {
     console.error("Manifest fetch failed");
     console.error(String(e));
     return;
   }
 
-  console.log(`Remote files: ${Object.keys(remote).length}`);
+  console.log(`Remote files: ${remote.length}`);
   console.log("");
 
   // =========================
@@ -68,17 +70,10 @@ async function main() {
   let skipped = 0;
   let failed = 0;
 
-  for (const [rel] of Object.entries(remote)) {
-    // Ignore backups
-
-    if (rel.startsWith(".backup/")) {
-      continue;
-    }
-
+  for (const rel of remote) {
     const localPath = syncRoot + "/" + rel;
 
     // Skip existing files
-
     if (fm.fileExists(localPath)) {
       skipped++;
       continue;
@@ -87,7 +82,7 @@ async function main() {
     console.log(`NEW: ${rel}`);
 
     try {
-      await downloadFile(BASE, share, syncRoot, rel);
+      await downloadFile(BASE, syncRoot, rel);
 
       downloaded++;
     } catch (e) {
@@ -113,17 +108,17 @@ async function main() {
 }
 
 // =========================
-// CONFIG
+// ROOT FOLDER (bookmark-based)
 // =========================
 
-function loadExistingConfig() {
+function loadRootBookmarkName() {
   if (fm.fileExists(CONFIG_PATH)) {
     try {
       const raw = fm.readString(CONFIG_PATH);
       const config = JSON.parse(raw);
 
-      if (config.root && config.host && config.port && config.share) {
-        return config;
+      if (config.bookmarkName) {
+        return config.bookmarkName;
       }
     } catch (e) {
       console.error("Invalid config file");
@@ -133,71 +128,65 @@ function loadExistingConfig() {
   return null;
 }
 
-async function getConfig() {
-  const existing = loadExistingConfig();
-
-  if (existing) {
-    return existing;
-  }
-
-  // First run setup
-  return await configure();
+function saveRootBookmarkName(bookmarkName) {
+  fm.writeString(CONFIG_PATH, JSON.stringify({ bookmarkName }, null, 2));
 }
 
-async function configure() {
-  const existing = loadExistingConfig();
+// Resolves the configured root folder to an actual path, prompting for
+// (and persisting) a bookmark name if none is set yet, or if the saved
+// bookmark no longer exists.
+async function getRoot() {
+  let bookmarkName = loadRootBookmarkName();
 
-  // Pick destination folder
-  const root = await DocumentPicker.openFolder();
+  if (!bookmarkName) {
+    bookmarkName = await configureRoot();
+  } else if (!fm.bookmarkExists(bookmarkName)) {
+    console.error(`Bookmark "${bookmarkName}" not found`);
+    bookmarkName = await configureRoot();
+  }
 
-  if (!root) {
+  if (!bookmarkName) {
     return null;
   }
 
-  // Server host
-  const host = await prompt(
-    "Server Host",
-    (existing && existing.host) || "192.168.1.",
+  return fm.bookmarkedPath(bookmarkName);
+}
+
+// Prompts for a bookmark name and validates + saves it.
+async function configureRoot() {
+  const existing = loadRootBookmarkName();
+
+  const bookmarkName = await prompt(
+    "Root Folder Bookmark Name",
+    existing || "",
   );
 
-  if (!host) {
+  if (!bookmarkName) {
     return null;
   }
 
-  // Server port
-  const port = await prompt(
-    "Server Port",
-    (existing && existing.port) || "8698",
-  );
+  if (!fm.bookmarkExists(bookmarkName)) {
+    const alert = new Alert();
 
-  if (!port) {
+    alert.title = "Bookmark Not Found";
+    alert.message =
+      `No bookmark named "${bookmarkName}" exists yet.\n\n` +
+      `Add one in Scriptable's settings (Settings > File Bookmarks) ` +
+      `pointing at your sync folder, then try again.`;
+
+    alert.addAction("OK");
+
+    await alert.present();
+
     return null;
   }
 
-  // Folder name
-  const share = await prompt("Folder Name", (existing && existing.share) || "");
+  saveRootBookmarkName(bookmarkName);
 
-  if (!share) {
-    return null;
-  }
-
-  const config = {
-    root,
-    host,
-    port,
-    share,
-  };
-
-  saveConfig(config);
-
-  console.log("Config saved");
+  console.log(`Root bookmark set: ${bookmarkName}`);
   console.log("");
 
-  return config;
-}
-
-function saveConfig(config) {
-  fm.writeString(CONFIG_PATH, JSON.stringify(config, null, 2));
+  return bookmarkName;
 }
 
 // =========================
@@ -215,10 +204,6 @@ async function prompt(title, value = "") {
 
   alert.addCancelAction("Cancel");
 
-  // IMPORTANT:
-  // use present()
-  // NOT presentAlert()
-
   const result = await alert.present();
 
   if (result === -1) {
@@ -232,8 +217,8 @@ async function prompt(title, value = "") {
 // NETWORK
 // =========================
 
-async function fetchRemoteManifest(BASE, SHARE) {
-  const url = `${BASE}/list/` + `${encodeURIComponent(SHARE)}`;
+async function fetchRemoteManifest(BASE) {
+  const url = `${BASE}/list`;
 
   console.log(`GET ${url}`);
 
@@ -256,11 +241,8 @@ async function fetchRemoteManifest(BASE, SHARE) {
   return json;
 }
 
-async function downloadFile(BASE, SHARE, root, rel) {
-  const encodedRel = encodeURIComponent(rel);
-
-  const url =
-    `${BASE}/download/` + `${encodeURIComponent(SHARE)}/` + `${encodedRel}`;
+async function downloadFile(BASE, root, rel) {
+  const url = `${BASE}/download/` + `${encodeURIComponent(rel)}`;
 
   console.log(`Downloading ${rel}`);
 
@@ -313,11 +295,11 @@ function ensureParentDir(path) {
 // SHORTCUT PARAMS
 // =========================
 
-if (args.queryParameters.config === "1") {
-  const config = await configure();
+if (args.queryParameters.resetRoot === "1") {
+  const bookmarkName = await configureRoot();
 
-  if (config) {
-    console.log("Reconfiguration complete");
+  if (bookmarkName) {
+    console.log("Root folder reconfigured");
   } else {
     console.log("Reconfiguration cancelled");
   }

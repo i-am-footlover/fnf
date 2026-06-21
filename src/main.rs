@@ -1,13 +1,13 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::process::exit;
+use std::collections::HashSet;
+use std::path::PathBuf;
 
 use clap::Parser;
+use qrcode::{QrCode, render::unicode};
 use salvo::fs::NamedFile;
 use salvo::prelude::*;
 use walkdir::WalkDir;
 
-fn display_host(host: &str) -> String {
+fn to_local_ip(host: &str) -> String {
     if host == "0.0.0.0" {
         local_ip_address::local_ip()
             .map(|ip| ip.to_string())
@@ -17,30 +17,7 @@ fn display_host(host: &str) -> String {
     }
 }
 
-type FileMap = HashMap<PathBuf, String>;
-
-// TODO:
-fn hash_file(_path: &Path) -> std::io::Result<String> {
-    // use std::io::Read;
-    // use sha2::{Digest, Sha256};
-    // let mut file = std::fs::File::open(path)?;
-    // let mut hasher = Sha256::new();
-    // let mut buf = [0u8; 8192];
-    // loop {
-    //     let n = file.read(&mut buf)?;
-
-    //     if n == 0 {
-    //         break;
-    //     }
-
-    //     hasher.update(&buf[..n]);
-    // }
-    // let hash = hasher.finalize();
-    // Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
-    Ok("".to_string())
-}
-
-fn parse_dir(s: &str) -> Result<(String, PathBuf, FileMap), String> {
+fn parse_dir(s: &str) -> Result<(String, PathBuf, HashSet<PathBuf>), String> {
     let dir = std::fs::canonicalize(s).map_err(|e| format!("{s}: {e}"))?;
 
     if !dir.is_dir() {
@@ -53,7 +30,7 @@ fn parse_dir(s: &str) -> Result<(String, PathBuf, FileMap), String> {
         .ok_or_else(|| format!("invalid directory name: {}", dir.display()))?
         .to_string();
 
-    let mut files = HashMap::new();
+    let mut files = HashSet::new();
 
     for entry in WalkDir::new(&dir) {
         let entry = entry.map_err(|e| e.to_string())?;
@@ -69,9 +46,7 @@ fn parse_dir(s: &str) -> Result<(String, PathBuf, FileMap), String> {
             .map_err(|e| e.to_string())?
             .to_path_buf();
 
-        let hash = hash_file(full).map_err(|e| e.to_string())?;
-
-        files.insert(rel, hash);
+        files.insert(rel);
     }
 
     Ok((name, dir, files))
@@ -81,7 +56,7 @@ fn parse_dir(s: &str) -> Result<(String, PathBuf, FileMap), String> {
 #[command(author, version, about, arg_required_else_help = true)]
 struct Opts {
     #[arg(long, required = true, num_args = 1.., value_parser = parse_dir)]
-    dirs: Vec<(String, PathBuf, FileMap)>,
+    dir: (String, PathBuf, HashSet<PathBuf>),
     #[arg(long, default_value = "0.0.0.0")]
     host: String,
     #[arg(long, default_value_t = 8698)]
@@ -89,32 +64,18 @@ struct Opts {
 }
 
 #[handler]
-async fn list(
-    req: &mut Request,
-    depot: &mut Depot,
-) -> (Json<HashMap<PathBuf, String>>, StatusCode) {
-    let dirs = depot
-        .obtain::<HashMap<String, (PathBuf, FileMap)>>()
-        .unwrap();
-    let name = req.param::<String>("name").unwrap();
-
-    if let Some(file_map) = dirs.get(&name).map(|v| &v.1) {
-        (Json(file_map.clone()), StatusCode::OK)
-    } else {
-        (Json(HashMap::default()), StatusCode::NOT_FOUND)
-    }
+async fn list(depot: &mut Depot) -> (Json<HashSet<PathBuf>>, StatusCode) {
+    let dirs = depot.obtain::<(PathBuf, HashSet<PathBuf>)>().unwrap();
+    (Json(dirs.1.clone()), StatusCode::OK)
 }
 
 #[handler]
 async fn download(req: &mut Request, depot: &mut Depot) -> Result<NamedFile, StatusCode> {
-    let dirs = depot
-        .obtain::<HashMap<String, (PathBuf, FileMap)>>()
-        .unwrap();
-    let name = req.param::<String>("name").unwrap();
-    let file_name = req.param::<String>("file_name").unwrap();
+    let dirs = depot.obtain::<(PathBuf, HashSet<PathBuf>)>().unwrap();
+    let rel_file_path = req.param::<PathBuf>("rel_file_path").unwrap();
 
-    if let Some((path, _file_map)) = dirs.get(&name) {
-        match NamedFile::open(path.join(file_name)).await {
+    if let Some(rel_file_path) = dirs.1.get(&rel_file_path) {
+        match NamedFile::open(dirs.0.join(rel_file_path)).await {
             Ok(file) => Ok(file),
             Err(salvo::Error::Io(err)) if err.kind() == std::io::ErrorKind::NotFound => {
                 Err(StatusCode::NOT_FOUND)
@@ -132,29 +93,31 @@ async fn download(req: &mut Request, depot: &mut Depot) -> Result<NamedFile, Sta
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt().init();
-    let Opts { dirs, port, host } = Opts::parse();
+    let Opts {
+        dir: (name, path, rel_file_paths),
+        port,
+        host,
+    } = Opts::parse();
 
-    let mut dir_map: HashMap<String, (PathBuf, FileMap)> = HashMap::new();
-
-    for (name, path, file_map) in dirs {
-        if dir_map.insert(name.clone(), (path, file_map)).is_some() {
-            eprintln!("Duplicate directory base name detected: '{}'", name);
-            exit(1);
-        }
-    }
-
-    let list_router = Router::with_path("/list/{name}")
-        .hoop(affix_state::inject(dir_map.clone()))
+    let list_router = Router::with_path("/list")
+        .hoop(affix_state::inject((path.clone(), rel_file_paths.clone())))
         .get(list);
 
-    let download_router = Router::with_path("/download/{name}/{file_name}")
-        .hoop(affix_state::inject(dir_map))
+    let download_router = Router::with_path("/download/{rel_file_path}")
+        .hoop(affix_state::inject((path.clone(), rel_file_paths.clone())))
         .get(download);
 
     let router = Router::new().push(list_router).push(download_router);
 
-    let display_host = display_host(&host);
-    println!("Server running! Listening on http://{display_host}:{port}");
+    let host = to_local_ip(&host);
+    println!("Server running! Listening on http://{host}:{port}\n");
+
+    let url = format!("scriptable:///run/fnf?host={host}&port={port}&name={name}");
+    println!("Scan the QR code below to sync with Scriptable.");
+    let code = QrCode::new(&url).unwrap();
+    let string = code.render::<unicode::Dense1x2>().build();
+    println!("{}", string);
+    println!("Scriptable URL: {}", url);
 
     Server::new(TcpListener::new((host, port)).bind().await)
         .serve(router)
