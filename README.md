@@ -1,14 +1,16 @@
 # fnf
 
-Simple local file sync server for Scriptable.
+Simple local file sync for Scriptable.
 
-## Install
+## Server
+
+### Install
 
 ```bash
 cargo install --git https://github.com/i-am-footlover/fnf
 ```
 
-## Usage
+### Usage
 
 Show help:
 
