@@ -140,7 +140,7 @@ Save the script as:
 
 `fnf-config`
 
-Then tap the `fnf-config` script inside Scriptable to reconfigure settings.
+Then just tap the `fnf-config` script inside Scriptable to reconfigure.
 
 ---
 
