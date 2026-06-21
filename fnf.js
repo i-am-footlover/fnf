@@ -1,103 +1,199 @@
-const BASE = "http://<HOST>:<PORT>";
-const SHARE = "FOLDER_TO_SYNC";
-
-// SCRIPTABLE SCRIPT
-
 const fm = FileManager.local();
 
-const CONFIG_PATH = fm.documentsDirectory() + "/sync-config.json";
-
 async function main() {
-  let root = loadRootFolder();
+  const root = await DocumentPicker.openFolder();
 
-  // First run -> choose folder
   if (!root) {
-    root = await chooseRootFolder();
-
-    if (!root) {
-      console.log("No folder selected");
-      return;
-    }
+    console.log("No folder selected");
+    return;
   }
 
-  console.log(`Sync root: ${root}`);
-  console.log("Fetching remote manifest...");
+  const host = await prompt("Server Host", "192.168.1.1");
 
-  const remote = await fetchRemoteManifest();
+  if (!host) return;
+
+  const port = await prompt("Server Port", "8698");
+
+  if (!port) return;
+
+  const share = await prompt("Share Name", "");
+
+  if (!share) return;
+
+  const BASE = `http://${host}:${port}`;
+
+  // Final sync directory:
+  // <picked-folder>/<share>/
+
+  const syncRoot = root + "/" + share;
+
+  if (!fm.fileExists(syncRoot)) {
+    fm.createDirectory(syncRoot, true);
+  }
+
+  console.log(`Host: ${host}:${port}`);
+  console.log(`Share: ${share}`);
+  console.log(`Sync root: ${syncRoot}`);
+  console.log("");
+
+  // =========================
+  // FETCH MANIFEST
+  // =========================
+
+  let remote;
+
+  try {
+    remote = await fetchRemoteManifest(BASE, share);
+  } catch (e) {
+    console.error("Manifest fetch failed");
+    console.error(String(e));
+    return;
+  }
 
   console.log(`Remote files: ${Object.keys(remote).length}`);
 
+  console.log("");
+
+  // =========================
+  // SYNC FILES
+  // =========================
+
   let downloaded = 0;
   let skipped = 0;
+  let failed = 0;
 
-  for (const [rel, remoteHashRaw] of Object.entries(remote)) {
-    // Ignore any leftover backups from previous script versions
+  for (const [rel] of Object.entries(remote)) {
     if (rel.startsWith(".backup/")) {
       continue;
     }
 
-    const localPath = root + "/" + rel;
+    const localPath = syncRoot + "/" + rel;
 
-    // If file does not exist, download it.
-    if (!fm.fileExists(localPath)) {
-      console.log(`NEW: ${rel}`);
-      await downloadFile(root, rel);
-      downloaded++;
-    } else {
-      // File exists - skip it completely
+    // Skip existing files
+
+    if (fm.fileExists(localPath)) {
       skipped++;
+      continue;
+    }
+
+    console.log(`NEW: ${rel}`);
+
+    try {
+      await downloadFile(BASE, share, syncRoot, rel);
+
+      downloaded++;
+    } catch (e) {
+      console.error(`FAILED: ${rel}`);
+      console.error(String(e));
+
+      failed++;
     }
   }
 
+  // =========================
+  // DONE
+  // =========================
+
   console.log("");
-  console.log("Sync complete");
+  console.log("==========");
+  console.log("Sync Complete");
+  console.log("==========");
+
   console.log(`Downloaded: ${downloaded}`);
-  console.log(`Skipped (Already Exists): ${skipped}`);
+  console.log(`Skipped: ${skipped}`);
+  console.log(`Failed: ${failed}`);
 }
 
-async function chooseRootFolder() {
-  const dir = await DocumentPicker.openFolder();
+// =========================
+// PROMPT
+// =========================
 
-  fm.writeString(CONFIG_PATH, JSON.stringify({ root: dir }));
+async function prompt(title, value = "") {
+  const alert = new Alert();
 
-  return dir;
-}
+  alert.title = title;
 
-function loadRootFolder() {
-  if (!fm.fileExists(CONFIG_PATH)) {
+  alert.addTextField("", value);
+
+  alert.addAction("OK");
+
+  alert.addCancelAction("Cancel");
+
+  // IMPORTANT:
+  // use present()
+  // NOT presentAlert()
+
+  const result = await alert.present();
+
+  if (result === -1) {
     return null;
   }
+
+  return alert.textFieldValue(0).trim();
+}
+
+// =========================
+// NETWORK
+// =========================
+
+async function fetchRemoteManifest(BASE, SHARE) {
+  const url = `${BASE}/list/${encodeURIComponent(SHARE)}`;
+
+  console.log(`GET ${url}`);
+
+  const req = new Request(url);
+
+  let json;
 
   try {
-    return JSON.parse(fm.readString(CONFIG_PATH)).root;
-  } catch {
-    return null;
+    json = await req.loadJSON();
+  } catch (e) {
+    throw new Error(`Network error\n${e}`);
   }
+
+  // HTTP errors
+
+  if (req.response && req.response.statusCode >= 400) {
+    throw new Error(`HTTP ${req.response.statusCode}`);
+  }
+
+  return json;
 }
 
-async function fetchRemoteManifest() {
-  const req = new Request(`${BASE}/list/${encodeURIComponent(SHARE)}`);
-
-  return await req.loadJSON();
-}
-
-async function downloadFile(root, rel) {
-  // Encode each path segment separately so literal "/" between folders
-  // is preserved in the URL
+async function downloadFile(BASE, SHARE, root, rel) {
   const encodedRel = encodePathSegments(rel);
 
-  const url = `${BASE}/download/${encodeURIComponent(SHARE)}/${encodedRel}`;
+  const url =
+    `${BASE}/download/` + `${encodeURIComponent(SHARE)}/` + `${encodedRel}`;
 
   console.log(`Downloading ${rel}`);
 
   const req = new Request(url);
-  const data = await req.load();
+
+  let data;
+
+  try {
+    data = await req.load();
+  } catch (e) {
+    throw new Error(`Network error\n${e}`);
+  }
+
+  // HTTP errors
+
+  if (req.response && req.response.statusCode >= 400) {
+    throw new Error(`HTTP ${req.response.statusCode}`);
+  }
+
   const target = root + "/" + rel;
 
   ensureParentDir(target);
 
   fm.write(target, data);
 }
+
+// =========================
+// HELPERS
+// =========================
 
 function encodePathSegments(rel) {
   return rel.split("/").map(encodeURIComponent).join("/");
@@ -121,9 +217,4 @@ function ensureParentDir(path) {
   }
 }
 
-if (args.shortcutParameter === "pick") {
-  await chooseRootFolder();
-  console.log("Folder updated");
-} else {
-  await main();
-}
+await main();
