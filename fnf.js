@@ -9,7 +9,7 @@ const fm = FileManager.local();
 // - root folder
 // - host
 // - port
-// - share
+// - folder name
 
 const CONFIG_PATH = fm.documentsDirectory() + "/fnf-sync-config.json";
 
@@ -30,7 +30,7 @@ async function main() {
   const BASE = `http://${host}:${port}`;
 
   // Final sync directory:
-  // <destination-folder>/<share>/
+  // <sync-folder>/<folder-name>/
 
   const syncRoot = root + "/" + share;
 
@@ -39,7 +39,7 @@ async function main() {
   }
 
   console.log(`Host: ${host}:${port}`);
-  console.log(`Share: ${share}`);
+  console.log(`Folder: ${share}`);
   console.log(`Sync root: ${syncRoot}`);
   console.log("");
 
@@ -163,9 +163,9 @@ async function configure() {
     return null;
   }
 
-  // Share name
+  // Folder name
 
-  const share = await prompt("Share Name", "");
+  const share = await prompt("Folder Name", "");
 
   if (!share) {
     return null;
