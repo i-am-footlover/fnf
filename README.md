@@ -38,7 +38,7 @@ Install Scriptable from the App Store.
 
 Copy the contents of:
 
-`fnf.js`
+[`fnf.js`](./fnf.js)
 
 ---
 
