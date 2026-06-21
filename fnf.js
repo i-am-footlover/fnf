@@ -116,13 +116,10 @@ async function main() {
 // CONFIG
 // =========================
 
-async function getConfig() {
-  // Existing config
-
+function loadExistingConfig() {
   if (fm.fileExists(CONFIG_PATH)) {
     try {
       const raw = fm.readString(CONFIG_PATH);
-
       const config = JSON.parse(raw);
 
       if (config.root && config.host && config.port && config.share) {
@@ -133,14 +130,24 @@ async function getConfig() {
     }
   }
 
-  // First run setup
+  return null;
+}
 
+async function getConfig() {
+  const existing = loadExistingConfig();
+
+  if (existing) {
+    return existing;
+  }
+
+  // First run setup
   return await configure();
 }
 
 async function configure() {
-  // Pick destination folder
+  const existing = loadExistingConfig();
 
+  // Pick destination folder
   const root = await DocumentPicker.openFolder();
 
   if (!root) {
@@ -148,24 +155,27 @@ async function configure() {
   }
 
   // Server host
-
-  const host = await prompt("Server Host", "192.168.1.");
+  const host = await prompt(
+    "Server Host",
+    (existing && existing.host) || "192.168.1.",
+  );
 
   if (!host) {
     return null;
   }
 
   // Server port
-
-  const port = await prompt("Server Port", "8698");
+  const port = await prompt(
+    "Server Port",
+    (existing && existing.port) || "8698",
+  );
 
   if (!port) {
     return null;
   }
 
   // Folder name
-
-  const share = await prompt("Folder Name", "");
+  const share = await prompt("Folder Name", (existing && existing.share) || "");
 
   if (!share) {
     return null;
