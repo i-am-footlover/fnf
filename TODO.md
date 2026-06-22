@@ -1,0 +1,2 @@
+- [ ] Allow large file transfers in chunks.
+- [ ] Prevent conflicts when using the same folder name.
